@@ -1,6 +1,6 @@
 use bevy::{ecs::event::Events, prelude::*};
 
-use async_std::channel::{bounded, Receiver, Sender};
+use crossbeam_channel::{bounded, Receiver, Sender};
 
 use bevy_egui::{
     egui::{self},
@@ -43,7 +43,7 @@ fn receive(
     mut state: ResMut<Web3State>,
 ) {
     if let Ok(ev) = receiver.try_recv() {
-        println!("Receiving");
+        info!("Receiving");
         state.wallet_address.0 = ev.wallet_address.0;
         events.send(Receive(ev));
     }
@@ -53,7 +53,7 @@ fn send(sender: ResMut<Sender<Web3State>>, mut reader: EventReader<Send>) {
     for ev in reader.iter() {
         let ev = Web3State::new(ev.0.wallet_address.0);
         if let Err(_e) = sender.try_send(ev) {
-            println!("Error sending event");
+            info!("Error sending event");
         }
     }
 }
@@ -79,7 +79,7 @@ pub fn header(
                             .send(Web3State {
                                 wallet_address: WalletAddress(Some(addr[0])),
                             })
-                            .await
+                            //.await
                             .unwrap();
                     }
                 }
@@ -94,7 +94,7 @@ pub fn header(
 
 fn main() {
     let (sender, receiver) = bounded::<Web3State>(1);
-    let state = Web3State::default();
+
     let mut builder = App::new();
     // add plugins
     builder.add_plugins(DefaultPlugins);
@@ -103,9 +103,9 @@ fn main() {
     // add systems
     builder
         .add_startup_system(startup_system)
+        .insert_resource(Web3State::default())
         .insert_resource(sender)
         .insert_resource(receiver)
-        .insert_resource(state)
         .add_event::<Send>()
         .add_event::<Receive>()
         .add_system(send)
